@@ -123,6 +123,20 @@ def detection_list_create(request):
     replace_id = request.data.get("replace_id")
     model_type = request.data.get("model_type", Detection.MODEL_CART)
     violation_type = request.data.get("violation_type")
+    latitude = None
+    longitude = None
+    try:
+        _lat = request.data.get("latitude")
+        if _lat is not None:
+            latitude = float(_lat)
+    except (TypeError, ValueError):
+        pass
+    try:
+        _lng = request.data.get("longitude")
+        if _lng is not None:
+            longitude = float(_lng)
+    except (TypeError, ValueError):
+        pass
 
     if not image_file:
         return Response({"error": "Image is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -146,7 +160,12 @@ def detection_list_create(request):
             detection.detected_at = detected_at
             detection.model_type = model_type
             detection.violation_type = violation_type
-            detection.save(update_fields=["image", "detected_at", "model_type", "violation_type"])
+            if latitude is not None:
+                detection.latitude = latitude
+            if longitude is not None:
+                detection.longitude = longitude
+            update_fields = ["image", "detected_at", "model_type", "violation_type", "latitude", "longitude"]
+            detection.save(update_fields=update_fields)
 
             # Delete old image only after the DB write succeeds
             if old_image_name:
@@ -168,12 +187,42 @@ def detection_list_create(request):
         violation_type=violation_type,
         image=image_file,
         detected_at=detected_at,
-        status=Detection.STATUS_PENDING,
+        status=Detection.STATUS_NEW,
+        latitude=latitude,
+        longitude=longitude,
     )
 
     logger.info("detection_created | id=%s model=%s", detection.pk, model_type)
     _broadcast_detection(detection)
     return Response(DetectionSerializer(detection).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["PATCH"])
+@authentication_classes([DetectionServiceAuthentication])
+@permission_classes([AllowAny])
+def update_detection_plate(request, pk: int):
+    detection = get_object_or_404(Detection, pk=pk)
+    plate_number = request.data.get("plate_number")
+    plate_confidence = request.data.get("plate_confidence")
+
+    update_fields = []
+    if plate_number is not None:
+        detection.plate_number = str(plate_number)[:20]
+        update_fields.append("plate_number")
+    if plate_confidence is not None:
+        try:
+            detection.plate_confidence = float(plate_confidence)
+            update_fields.append("plate_confidence")
+        except (TypeError, ValueError):
+            return Response({"error": "plate_confidence must be a number."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not update_fields:
+        return Response({"error": "No plate fields provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    detection.save(update_fields=update_fields)
+    logger.info("detection_plate_updated | id=%s plate=%s conf=%s", pk, plate_number, plate_confidence)
+    _broadcast_detection(detection)
+    return Response(DetectionSerializer(detection).data)
 
 
 @api_view(["POST"])

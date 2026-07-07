@@ -11,6 +11,11 @@ urlpatterns = [
         views.detection_status_update,
         name="detection-status-update",
     ),
+    path(
+        "api/detections/<int:pk>/",
+        views.update_detection_plate,
+        name="detection-plate-update",
+    ),
     # Simple form actions (non-AJAX fallback)
     path("detections/<int:pk>/approve/", views.approve_detection, name="approve-detection"),
     path("detections/<int:pk>/reject/", views.reject_detection, name="reject-detection"),

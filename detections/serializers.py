@@ -6,7 +6,7 @@ from .models import Detection
 class DetectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Detection
-        fields = ["id", "name", "model_type", "violation_type", "image", "detected_at", "status", "created_at"]
+        fields = ["id", "name", "model_type", "violation_type", "image", "plate_number", "plate_confidence", "latitude", "longitude", "detected_at", "status", "created_at"]
         read_only_fields = ["id", "name", "status", "created_at"]
 
 
