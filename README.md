@@ -72,22 +72,48 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 6. Run the development server
+### 6. Run the server
 
-**HTTP + admin (WS may be limited under `runserver`):**
+**Local only (HTTP + admin; WS may be limited under `runserver`):**
 
 ```powershell
 python manage.py runserver 8000
 ```
 
-**Full ASGI (recommended if WebSockets misbehave under `runserver`):**
+**Full ASGI, local only:**
 
 ```powershell
 daphne -b 127.0.0.1 -p 8000 surveillance.asgi:application
 ```
 
-- Dashboard: `http://127.0.0.1:8000/`  
-- API: `POST http://127.0.0.1:8000/api/detections/` (multipart `image` + metadata)
+**Full ASGI, reachable from other devices on your LAN:**
+
+```powershell
+daphne -b 0.0.0.0 -p 8000 surveillance.asgi:application
+```
+
+`-b 0.0.0.0` binds every network interface instead of just loopback. Before other
+devices can reach it:
+
+- Add your machine's LAN IP (`ipconfig`) to `DJANGO_ALLOWED_HOSTS` in `.env`.
+- Open an inbound Windows Firewall rule for the port (8000 by default) — e.g.
+  from an elevated PowerShell:
+  ```powershell
+  New-NetFirewallRule -DisplayName "CITY-AI Dashboard" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+  ```
+
+Then a client on the same network opens `http://<your-lan-ip>:8000/` and gets
+the live dashboard — detections stream in over `/ws/detections/` as they're
+POSTed, no refresh needed.
+
+- Local: `http://127.0.0.1:8000/`
+- LAN: `http://<your-lan-ip>:8000/`
+- API: `POST http://<host>:8000/api/detections/` (multipart `image` + metadata)
+
+Uploaded images are always written to and served from the local `media/`
+folder ( `MEDIA_ROOT` ), regardless of which host/interface you bind to or
+whether `DJANGO_DEBUG` is `0` or `1` — hosting for LAN clients doesn't change
+where or how images are stored.
 
 ## CITY-AI Detection
 
